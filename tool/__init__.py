@@ -12,6 +12,7 @@ from .summarize import nest_summary
 from .summarize import graph_summary
 from .summarize import video_summary
 from .summarize import count_episodes
+from .summarize import save_episodes
 from .staticscan import static_scan
 from .lambdareturn import lambda_return
 from .onehotdist import OneHotDist

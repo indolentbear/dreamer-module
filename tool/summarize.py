@@ -2,7 +2,6 @@ import tensorflow.compat.v1 as tf1
 import numpy as np
 import tensorflow as tf
 import json
-import tool
 import datetime
 import io
 import pathlib

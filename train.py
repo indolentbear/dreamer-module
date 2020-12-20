@@ -8,13 +8,14 @@ from tensorflow.keras.mixed_precision import experimental as prec
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['MUJOCO_GL'] = 'egl'
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'      # 显卡号
 tf.get_logger().setLevel('ERROR')
 sys.path.append(str(pathlib.Path(__file__).parent))
 
 from config import define_config
 import tool
 import wrappers
+import script
 from dreamer import Dreamer
 
 def count_steps(datadir, config):
@@ -29,35 +30,13 @@ def args_type(default):
     return lambda x: pathlib.Path(x).expanduser()
   return type(default)
 
-def make_env(config, writer, prefix, datadir, store):
-  suite, task = config.task.split('_', 1)
-  if suite == 'dmc':
-    env = wrappers.DeepMindControl(task)
-    env = wrappers.ActionRepeat(env, config.action_repeat)
-    env = wrappers.NormalizeActions(env)
-  elif suite == 'atari':
-    env = wrappers.Atari(
-        task, config.action_repeat, (64, 64), grayscale=False,
-        life_done=True, sticky_actions=True)
-    env = wrappers.OneHotAction(env)
-  else:
-    raise NotImplementedError(suite)
-  env = wrappers.TimeLimit(env, config.time_limit / config.action_repeat)
-  callbacks = []
-  if store:
-    callbacks.append(lambda ep: tool.save_episodes(datadir, [ep]))
-  callbacks.append(
-      lambda ep: tool.summarize_episode(ep, config, datadir, writer, prefix))
-  env = wrappers.Collect(env, callbacks, config.precision)
-  env = wrappers.RewardObs(env)
-  return env
-
-
 def main(config):
+  # GPU内存动态增长
   if config.gpu_growth:
     for gpu in tf.config.experimental.list_physical_devices('GPU'):
       tf.config.experimental.set_memory_growth(gpu, True)
   assert config.precision in (16, 32), config.precision
+  # 判断 precision ,混合精度训练，使用更少内存 运行更快
   if config.precision == 16:
     prec.set_policy(prec.Policy('mixed_float16'))
   config.steps = int(config.steps)
@@ -69,10 +48,10 @@ def main(config):
   writer = tf.summary.create_file_writer(
       str(config.logdir), max_queue=1000, flush_millis=20000)
   writer.set_as_default()
-  train_envs = [wrappers.Async(lambda: make_env(
+  train_envs = [wrappers.Async(lambda: script.make_env(
       config, writer, 'train', datadir, store=True), config.parallel)
       for _ in range(config.envs)]
-  test_envs = [wrappers.Async(lambda: make_env(
+  test_envs = [wrappers.Async(lambda: script.make_env(
       config, writer, 'test', datadir, store=False), config.parallel)
       for _ in range(config.envs)]
   actspace = train_envs[0].action_space

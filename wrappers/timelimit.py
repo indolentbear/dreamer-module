@@ -4,7 +4,7 @@ class TimeLimit:
 
   def __init__(self, env, duration):
     self._env = env
-    self._duration = duration
+    self._duration = duration   # duration, 持续时间
     self._step = None
 
   def __getattr__(self, name):
@@ -17,6 +17,7 @@ class TimeLimit:
     if self._step >= self._duration:
       done = True
       if 'discount' not in info:
+        # ??????????
         info['discount'] = np.array(1.0).astype(np.float32)
       self._step = None
     return obs, reward, done, info

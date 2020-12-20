@@ -3,8 +3,18 @@ import tool
 
 def lambda_return(
 		reward, value, pcont, bootstrap, lambda_, axis):
-	# Setting lambda=1 gives a discounted Monte Carlo return.
-	# Setting lambda=0 gives a fixed 1-step return.
+	"""
+
+	:param reward		:
+	:param value		: V值
+	:param pcont		: 折扣
+	:param bootstrap	:
+	:param lambda_	: 单步/MC多步
+	:param axis		: 横/纵
+	:return returns	: 累计汇报
+	"""
+	# lambda_ = 1, Monte Carlo return.
+	# lambda_ = 0, fixed 1-step return
 	assert reward.shape.ndims == value.shape.ndims, (reward.shape, value.shape)
 	if isinstance(pcont, (int, float)):
 		pcont = pcont * tf.ones_like(reward)

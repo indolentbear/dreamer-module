@@ -1,6 +1,15 @@
 import numpy as np
 
 def simulate(agent, envs, steps=0, episodes=0, state=None):
+	"""
+
+	:param agent	: 算法类agent
+	:param envs	: 环境集合
+	:param steps	:
+	:param episodes:
+	:param state	:
+	:return:
+	"""
 	# Initialize or unpack simulation state.
 	if state is None:
 		step, episode = 0, 0
@@ -12,7 +21,7 @@ def simulate(agent, envs, steps=0, episodes=0, state=None):
 		step, episode, done, length, obs, agent_state = state
 	while (steps and step < steps) or (episodes and episode < episodes):
 		# Reset envs if necessary.
-		if done.any():
+		if done.any():		# any 为或操作
 			indices = [index for index, d in enumerate(done) if d]
 			promises = [envs[i].reset(blocking=False) for i in indices]
 			for index, promise in zip(indices, promises):

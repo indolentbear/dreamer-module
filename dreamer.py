@@ -44,6 +44,7 @@ class Dreamer(tool.Module):
 		if state is not None and reset.any():
 			mask = tf.cast(1 - reset, self._float)[:, None]
 			state = tf.nest.map_structure(lambda x: x * mask, state)
+		#******* should train *******#
 		if self._should_train(step):
 			log = self._should_log(step)
 			n = self._c.pretrain if self._should_pretrain() else self._c.train_steps
@@ -86,6 +87,11 @@ class Dreamer(tool.Module):
 		self._strategy.experimental_run_v2(self._train, args=(data, log_images))
 
 	def _train(self, data, log_images):
+		"""
+		calculate gradients & perform optimizer
+		:param data: batch
+		:param log_images: store or not
+		"""
 		with tf.GradientTape() as model_tape:
 			embed = self._encode(data)
 			post, prior = self._dynamics.observe(embed, data['action'])
@@ -100,17 +106,19 @@ class Dreamer(tool.Module):
 				pcont_target = self._c.discount * data['discount']
 				likes.pcont = tf.reduce_mean(pcont_pred.log_prob(pcont_target))
 				likes.pcont *= self._c.pcont_scale
+			# prior前向，P(s'|s,a)
+			# post,后部, P(s'|s,a,o)
 			prior_dist = self._dynamics.get_dist(prior)
 			post_dist = self._dynamics.get_dist(post)
 			div = tf.reduce_mean(tfd.kl_divergence(post_dist, prior_dist))
 			div = tf.maximum(div, self._c.free_nats)
 			model_loss = self._c.kl_scale * div - sum(likes.values())
-			model_loss /= float(self._strategy.num_replicas_in_sync)
+			model_loss /= float(self._strategy.num_replicas_in_sync)	# loss 除以分布式 模型复制的数量，？
 
 		with tf.GradientTape() as actor_tape:
 			imag_feat = self._imagine_ahead(post)
 			reward = self._reward(imag_feat).mode()
-			if self._c.pcont:
+			if self._c.pcont:	# discount for reward , True = 由latent variable得
 				pcont = self._pcont(imag_feat).mean()
 			else:
 				pcont = self._c.discount * tf.ones_like(reward)
@@ -126,6 +134,7 @@ class Dreamer(tool.Module):
 		with tf.GradientTape() as value_tape:
 			value_pred = self._value(imag_feat)[:-1]
 			target = tf.stop_gradient(returns)
+			# Log probability density/mass function.
 			value_loss = -tf.reduce_mean(discount * value_pred.log_prob(target))
 			value_loss /= float(self._strategy.num_replicas_in_sync)
 
@@ -199,6 +208,11 @@ class Dreamer(tool.Module):
 		raise NotImplementedError(self._c.expl)
 
 	def _imagine_ahead(self, post):
+		"""
+		imagine by model
+		:param post:
+		:return:
+		"""
 		if self._c.pcont:  # Last step could be terminal.
 			post = {k: v[:, :-1] for k, v in post.items()}
 		flatten = lambda x: tf.reshape(x, [-1] + list(x.shape[2:]))

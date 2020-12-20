@@ -30,6 +30,7 @@ class Adam(tf.Module):
 			loss = self._opt.get_scaled_loss(loss)
 		grads = tape.gradient(loss, self._variables)
 		grads = self._opt.get_unscaled_gradients(grads)
+		# `global_norm = sqrt( sum([l2norm(t) ** 2 for t in grads]) )`
 		norm = tf.linalg.global_norm(grads)
 		if self._clip:
 			grads, _ = tf.clip_by_global_norm(grads, self._clip, norm)
